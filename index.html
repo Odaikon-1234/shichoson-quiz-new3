@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>市町村クイズ</title>
+<meta name="theme-color" content="#18212b">
+<meta name="apple-mobile-web-app-title" content="市町村クイズ">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#f4f6f8;color:#18212b}.app{max-width:620px;margin:auto;min-height:100vh;padding:18px 16px 90px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}h1{font-size:24px;margin:0}.sub{color:#687584;font-size:13px;margin-top:3px}button{border:0;border-radius:14px;padding:13px 16px;font-size:16px;font-weight:700;background:#18212b;color:white}button.secondary{background:white;color:#18212b;border:1px solid #d8dee5}button:active{transform:scale(.98)}.card{background:white;border-radius:22px;padding:20px;box-shadow:0 5px 22px #0000000c;margin-bottom:14px}.menu button{width:100%;margin:7px 0;text-align:left}.menu .big{padding:18px}.badge{display:inline-block;background:#eef2f6;border-radius:99px;padding:5px 9px;font-size:12px;margin-bottom:9px}.progress{height:8px;background:#e7ebef;border-radius:99px;overflow:hidden;margin:10px 0 18px}.progress i{display:block;height:100%;background:#18212b}.question{text-align:center;font-size:38px;font-weight:800;margin:32px 0}input{width:100%;font-size:20px;padding:15px;border:2px solid #dce2e8;border-radius:14px;text-align:center;outline:0}input:focus{border-color:#18212b}.feedback{text-align:center;padding:14px;border-radius:14px;margin:12px 0;font-weight:700}.ok{background:#e9f8ef;color:#17733e}.ng{background:#fff0f0;color:#a62b2b}.row{display:flex;gap:8px}.row button{flex:1}.muted{color:#71808e;font-size:13px}.stat{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #edf0f3}.stat:last-child{border:0}.item{padding:13px 0;border-bottom:1px solid #edf0f3}.item:last-child{border:0}.wrong{color:#b02a2a}.right{color:#17733e}.hidden{display:none!important}.small{font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><h1>🇯🇵 市町村クイズ</h1><div class="sub">全国の市・町・村を覚えよう（772市・743町・189村）</div></div><button class="secondary" onclick="home()">ホーム</button></header>
+<div id="screen"></div>
+</div>
+<script src="./data.js"></script>
+<script>
+const DATA={市:[],町:[],村:[],町村:[]};
+const NORTHERN_TERRITORY_VILLAGES=[["色丹村","北海道"],["泊村","北海道"],["留夜別村","北海道"],["留別村","北海道"],["紗那村","北海道"],["蘂取村","北海道"]];
+let dataReady=false;
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function initData(){
+  if(!window.MUNI_DATA) throw new Error("data.js がまだ作成されていません。GitHub Actionsの完了を待ってください。");
+  DATA.市=window.MUNI_DATA.市.map(x=>[x[0],x[1]]);
+  DATA.町=window.MUNI_DATA.町.map(x=>[x[0],x[1]]);
+  DATA.村=window.MUNI_DATA.村.map(x=>[x[0],x[1]]);
+  DATA.町村=shuffle(DATA.町.concat(DATA.村));
+  if(DATA.市.length!==772||DATA.町.length!==743||DATA.村.length!==189) throw new Error(`データ件数が一致しません（市${DATA.市.length}・町${DATA.町.length}・村${DATA.村.length}）`);
+  dataReady=true;home();
+}
+let state=JSON.parse(localStorage.getItem("muniQuiz")||'{"history":[]}');
+let quiz={type:null,items:[],i:0,correct:0,answered:false};
+function save(){localStorage.setItem("muniQuiz",JSON.stringify(state))}
+function home(){document.getElementById("screen").innerHTML=`
+<div class="card"><span class="badge">LEVEL 1</span><h2>都道府県を当てる</h2><p class="muted">全国データはアプリ内に保存済み。通信で自治体データを読み込む必要はありません。</p><div class="menu">
+<button class="big" onclick="start('市')">🏙️ 市クイズ <span class="small">772市</span></button>
+<button class="big" onclick="start('町村')">🏘️ 町村クイズ <span class="small">743町＋189村</span></button>
+<button class="big" onclick="review()">❌ 間違えた問題だけ</button></div></div>
+<div class="card"><h3>全国データ</h3><div class="stat"><span>市</span><b>${DATA.市.length} / 772</b></div><div class="stat"><span>町</span><b>${DATA.町.length} / 743</b></div><div class="stat"><span>村</span><b>${DATA.村.length} / 189</b></div></div>
+<div class="card"><h3>あなたの記録</h3><div class="stat"><span>出題済み</span><b>${new Set(state.history.map(x=>x.key)).size} 問</b></div><div class="stat"><span>正解</span><b>${state.history.filter(x=>x.ok).length} 回</b></div><div class="stat"><span>不正解</span><b>${state.history.filter(x=>!x.ok).length} 回</b></div><div class="stat"><span>間違えた市町村</span><b>${wrongKeys().length} 問</b></div></div>
+<div class="card"><button class="secondary" style="width:100%" onclick="historyPage()">📖 出題履歴を見る</button></div>`}
+function start(type){if(!dataReady)return;quiz={type,items:shuffle(DATA[type]),i:0,correct:0,answered:false};renderQ()}
+function wrongKeys(){return [...new Set(state.history.filter(x=>!x.ok).map(x=>x.key))]}
+function review(){let keys=new Set(wrongKeys()),arr=[];for(let type of ["市","町村"])for(let x of DATA[type])if(keys.has(type+"|"+x[0]))arr.push({...x,type});if(!arr.length){alert("まだ間違えた問題がありません！");return}quiz={type:"復習",items:shuffle(arr).map(x=>[x[0],x[1],x.type]),i:0,correct:0,answered:false};renderQ()}
+function renderQ(){let x=quiz.items[quiz.i],name=x[0],pref=x[1],type=quiz.type==="復習"?x[2]:quiz.type;document.getElementById("screen").innerHTML=`<div class="card"><div class="small">${quiz.type==="復習"?"❌ 間違い復習":"LEVEL 1"}　${type}　${quiz.i+1}/${quiz.items.length}</div><div class="progress"><i style="width:${(quiz.i/quiz.items.length)*100}%"></i></div><div class="question">${name}</div><input id="answer" placeholder="都道府県を入力" autocomplete="off"><div class="feedback hidden" id="fb"></div><div class="row"><button onclick="answer()">回答する</button><button class="secondary" onclick="home()">終了</button></div></div>`;document.getElementById("answer").focus();document.getElementById("answer").addEventListener("keydown",e=>{if(e.key==="Enter")answer()});quiz.answered=false}
+function norm(s){return s.replace(/\s/g,"").replace(/　/g,"").trim()}
+function answer(){if(quiz.answered)return;let input=norm(document.getElementById("answer").value);if(!input){alert("都道府県を入力してください");return}let x=quiz.items[quiz.i],name=x[0],pref=x[1],type=quiz.type==="復習"?x[2]:quiz.type,ok=norm(input)===norm(pref);quiz.answered=true;if(ok)quiz.correct++;state.history.push({key:type+"|"+name,name,pref,type,answer:input,ok,at:new Date().toISOString()});save();let fb=document.getElementById("fb");fb.classList.remove("hidden","ok","ng");fb.classList.add(ok?"ok":"ng");fb.textContent=ok?"🎉 正解！":"❌ 不正解　正解は「"+pref+"」";document.getElementById("answer").disabled=true;setTimeout(()=>{quiz.i++;if(quiz.i>=quiz.items.length)finish();else renderQ()},700)}
+function finish(){document.getElementById("screen").innerHTML=`<div class="card" style="text-align:center"><div style="font-size:48px">🎉</div><h2>クイズ終了！</h2><p style="font-size:22px;font-weight:800">${quiz.correct} / ${quiz.items.length} 正解</p><p class="muted">間違えた問題は「間違えた問題だけ」から復習できます。</p><button onclick="home()">ホームへ戻る</button></div>`}
+function historyPage(){let h=[...state.history].reverse();document.getElementById("screen").innerHTML=`<div class="card"><h2>📖 出題履歴</h2><p class="muted">これまでに解いた問題です。</p>${h.length?h.map(x=>`<div class="item"><b class="${x.ok?"right":"wrong"}">${x.ok?"✓":"✕"} ${x.name}</b><br><span class="muted">${x.type} → ${x.pref}　（回答：${x.answer}）</span></div>`).join(""):"<p>まだ問題を解いていません。</p>"}</div><div class="row"><button onclick="review()">間違いだけ復習</button><button class="secondary" onclick="home()">戻る</button></div>`}
+try{initData()}catch(e){document.getElementById("screen").innerHTML=`<div class="card"><h2>🛠️ 全国データを準備中です</h2><p>${e.message}</p><p class="muted">GitHubのActionsが完了すると、この画面は自動的に通常のクイズ画面になります。iPhone側で自治体データを読み込む必要はありません。</p></div>`}
+</script>
+<script>if("serviceWorker"in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}</script>
+</body></html>
